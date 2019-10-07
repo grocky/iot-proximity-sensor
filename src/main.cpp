@@ -11,6 +11,8 @@
 
 #include <Ultrasonic.h>
 
+#include <Config.h>
+
 #ifndef LED_BUILTIN
 #define LED_BUILTIN  13
 #endif
@@ -25,13 +27,34 @@ const static unsigned int ONE_MINUTE = ONE_SECOND * 60;
 const static unsigned int MINUTES = ONE_MINUTE;
 const static unsigned int LIGHT_TIMEOUT = 5 * SECONDS;
 
-const static unsigned int PROXIMITY_THRESHOLD_INCHES = 10;
 bool lightState = false;
+Config* C;
 
 void setup() {
     Serial.begin(9600);
     delay(ONE_SECOND);
     Serial.println("Initializing...");
+    C = new Config();
+
+    Bleeper
+        .verbose()
+        .configuration
+            .set(C)
+            .addObserver(new SettingsCallbackObserver([](const ConfigurationPropertyChange value) {
+                Serial.begin(9600);
+                delay(10);
+                Serial.println("Configuration " + value.key + " changed from " + value.oldValue + " to " + value.newValue);
+                delay(10);
+            }), {&C->sonar.triggerDistance})
+            .done()
+        .configurationInterface
+            .addDefaultWebServer()
+            .done()
+        .storage
+            .set(new SPIFFSStorage()) // SPIFFS
+            .done()
+        .init();
+
     distance = 128;
     numIntervals = 0;
     pinMode(LED_BUILTIN, OUTPUT);
@@ -63,10 +86,12 @@ void setup() {
 }
 
 void loop() {
+    Bleeper.handle();
+
     distance = ultrasonic.read(INC);
     Serial.printf("distance: %d inches\r\n", distance);
 
-    numIntervals = distance < PROXIMITY_THRESHOLD_INCHES
+    numIntervals = distance <= C->sonar.triggerDistance
             ? numIntervals + 1
             : 0;
 
