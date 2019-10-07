@@ -10,12 +10,16 @@
 
 class SonarConfig: public Configuration {
 public:
-   persistentIntVar(triggerDistance, 6);
+    persistentIntVar(triggerDistance, 6);
+    persistentIntVar(intervalDelay, 100);
+    persistentIntVar(triggerIntervals, 5);
 };
 
 /**
  * sonar:
  *      triggerDistance: 6
+ *      intervalDelay: 100
+ *      triggerIntervals: 5
  */
 class Config: public RootConfiguration {
 public:

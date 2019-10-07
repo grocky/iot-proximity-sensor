@@ -19,7 +19,7 @@
 
 Ultrasonic ultrasonic(D1);
 int distance;
-u_int numIntervals;
+int numIntervals;
 
 const static unsigned int ONE_SECOND = 1000;
 const static unsigned int SECONDS = ONE_SECOND;
@@ -35,17 +35,19 @@ void setup() {
     delay(ONE_SECOND);
     Serial.println("Initializing...");
     C = new Config();
+    std::function<void(const ConfigurationPropertyChange)> logConfigChange = [](const ConfigurationPropertyChange value) {
+        Serial.println("Configuration " + value.key + " changed from " + value.oldValue + " to " + value.newValue);
+    };
 
     Bleeper
         .verbose()
         .configuration
             .set(C)
-            .addObserver(new SettingsCallbackObserver([](const ConfigurationPropertyChange value) {
-                Serial.begin(9600);
-                while (!Serial) yield();
-                Serial.println("Configuration " + value.key + " changed from " + value.oldValue + " to " + value.newValue);
-                Serial.flush();
-            }), {&C->sonar.triggerDistance})
+            .addObserver(new SettingsCallbackObserver(logConfigChange), {
+                &C->sonar.triggerDistance,
+                &C->sonar.triggerIntervals,
+                &C->sonar.intervalDelay
+            })
             .done()
         .configurationInterface
             .addDefaultWebServer()
@@ -95,7 +97,7 @@ void loop() {
             ? numIntervals + 1
             : 0;
 
-    if (numIntervals >= 3) {
+    if (numIntervals >= C->sonar.triggerIntervals) {
         Serial.println("turning light on");
         lightState = true;
         digitalWrite(LED_BUILTIN, LOW);
@@ -108,5 +110,5 @@ void loop() {
         digitalWrite(LED_BUILTIN, HIGH);
     }
 
-    delay(100);
+    delay(C->sonar.intervalDelay);
 }
