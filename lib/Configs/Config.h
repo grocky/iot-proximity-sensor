@@ -8,27 +8,17 @@
 #include <Arduino.h>
 #include <Bleeper.h>
 
-class WifiConfig: public Configuration {
-public:
-    persistentStringVar(ssid, "MySSID");
-    persistentStringVar(password, "MyPassword");
-};
-
 class SonarConfig: public Configuration {
 public:
    persistentIntVar(triggerDistance, 6);
 };
+
 /**
- * wifi:
- *      ssid: ''
- *      password: ''
  * sonar:
  *      triggerDistance: 6
  */
 class Config: public RootConfiguration {
 public:
-    stringVar(name, "Default Device Name");
-    subconfig(WifiConfig, wifi);
     subconfig(SonarConfig, sonar);
 };
 
