@@ -22,10 +22,6 @@ int distance;
 int numIntervals;
 
 const static unsigned int ONE_SECOND = 1000;
-const static unsigned int SECONDS = ONE_SECOND;
-const static unsigned int ONE_MINUTE = ONE_SECOND * 60;
-const static unsigned int MINUTES = ONE_MINUTE;
-const static unsigned int LIGHT_TIMEOUT = 5 * SECONDS;
 
 bool lightState = false;
 Config* C;
@@ -44,9 +40,10 @@ void setup() {
         .configuration
             .set(C)
             .addObserver(new SettingsCallbackObserver(logConfigChange), {
-                &C->sonar.triggerDistance,
+                &C->sonar.triggerDistanceInches,
                 &C->sonar.triggerIntervals,
-                &C->sonar.intervalDelay
+                &C->sonar.intervalDelayMilliseconds,
+                &C->sonar.triggerTimeoutSeconds
             })
             .done()
         .configurationInterface
@@ -93,7 +90,7 @@ void loop() {
     distance = ultrasonic.read(INC);
     Serial.printf("distance: %d inches\r\n", distance);
 
-    numIntervals = distance <= C->sonar.triggerDistance
+    numIntervals = distance <= C->sonar.triggerDistanceInches
             ? numIntervals + 1
             : 0;
 
@@ -101,7 +98,7 @@ void loop() {
         Serial.println("turning light on");
         lightState = true;
         digitalWrite(LED_BUILTIN, LOW);
-        delay(LIGHT_TIMEOUT);
+        delay(C->sonar.triggerTimeoutSeconds * ONE_SECOND);
     }
 
     if (lightState) {
@@ -110,5 +107,5 @@ void loop() {
         digitalWrite(LED_BUILTIN, HIGH);
     }
 
-    delay(C->sonar.intervalDelay);
+    delay(C->sonar.intervalDelayMilliseconds);
 }

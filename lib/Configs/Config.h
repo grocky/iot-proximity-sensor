@@ -10,16 +10,18 @@
 
 class SonarConfig: public Configuration {
 public:
-    persistentIntVar(triggerDistance, 6);
-    persistentIntVar(intervalDelay, 100);
+    persistentIntVar(triggerDistanceInches, 6);
+    persistentIntVar(intervalDelayMilliseconds, 100);
     persistentIntVar(triggerIntervals, 5);
+    persistentIntVar(triggerTimeoutSeconds, 60);
 };
 
 /**
  * sonar:
- *      triggerDistance: 6
- *      intervalDelay: 100
+ *      triggerDistanceInches: 6
+ *      intervalDelayMilliseconds: 100
  *      triggerIntervals: 5
+ *      triggerTimeoutSeconds: 60
  */
 class Config: public RootConfiguration {
 public:
@@ -31,8 +33,8 @@ public:
     using CallbackFn = std::function<void(const ConfigurationPropertyChange)>;
 
     SettingsCallbackObserver(CallbackFn callback);
-    void onConfigurationChanged(const ConfigurationPropertyChange value);
 
+    void onConfigurationChanged(const ConfigurationPropertyChange value);
 private:
     CallbackFn callback;
 };
