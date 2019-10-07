@@ -18,7 +18,7 @@
 #endif
 
 Ultrasonic ultrasonic(D1);
-u_int distance;
+int distance;
 u_int numIntervals;
 
 const static unsigned int ONE_SECOND = 1000;
@@ -42,9 +42,9 @@ void setup() {
             .set(C)
             .addObserver(new SettingsCallbackObserver([](const ConfigurationPropertyChange value) {
                 Serial.begin(9600);
-                delay(10);
+                while (!Serial) yield();
                 Serial.println("Configuration " + value.key + " changed from " + value.oldValue + " to " + value.newValue);
-                delay(10);
+                Serial.flush();
             }), {&C->sonar.triggerDistance})
             .done()
         .configurationInterface
