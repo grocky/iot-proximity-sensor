@@ -2,6 +2,13 @@
 // Created by Rocky Gray on 10/6/19.
 //
 #include <Arduino.h>
+
+#include <DNSServer.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h>
+
 #include <Ultrasonic.h>
 
 #ifndef LED_BUILTIN
@@ -28,7 +35,31 @@ void setup() {
     distance = 128;
     numIntervals = 0;
     pinMode(LED_BUILTIN, OUTPUT);
-    delay(ONE_SECOND * .5);
+
+    Serial.println("Opening configuration portal");
+    digitalWrite(LED_BUILTIN, LOW);
+    WiFiManager wifiManager;
+
+    if (!wifiManager.autoConnect()) {
+        Serial.println("failed to connect and hit timeout");
+        //reset and try again, or maybe put it to deep sleep
+        ESP.reset();
+        delay(1000);
+    }
+
+    Serial.println("WiFi connection completed");
+    digitalWrite(LED_BUILTIN, HIGH);
+
+    int connResult = WiFi.waitForConnectResult();
+    Serial.println(connResult);
+
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("failed to connect, finishing setup anyway");
+    } else {
+        Serial.printf("local ip: %s\r\n", WiFi.localIP().toString().c_str());
+    }
+
+    delay(ONE_SECOND);
 }
 
 void loop() {
