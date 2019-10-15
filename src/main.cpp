@@ -22,12 +22,13 @@ int distance;
 int numIntervals;
 
 const static unsigned int ONE_SECOND = 1000;
+const static int BAUD_RATE = 9600;
 
 bool lightState = false;
 Config* C;
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(BAUD_RATE);
     delay(ONE_SECOND);
     Serial.println("Initializing...");
     C = new Config();
@@ -36,7 +37,7 @@ void setup() {
     };
 
     Bleeper
-        .verbose()
+        .verbose(BAUD_RATE)
         .configuration
             .set(C)
             .addObserver(new SettingsCallbackObserver(logConfigChange), {
