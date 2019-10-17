@@ -17,14 +17,20 @@
 #define LED_BUILTIN  13
 #endif
 
-Ultrasonic ultrasonic(D1);
-int distance;
-int numIntervals;
-
 const static unsigned int ONE_SECOND = 1000;
 const static int BAUD_RATE = 9600;
 
-bool lightState = false;
+const static unsigned int SENSOR_ECHO_PIN = D1;
+const static unsigned int SENSOR_TRIGGER_PIN = D2;
+const static unsigned long SENSOR_TIMEOUT_MS = 1000 * 28;
+Ultrasonic ultrasonic(SENSOR_TRIGGER_PIN, SENSOR_ECHO_PIN, SENSOR_TIMEOUT_MS);
+
+struct SensorState {
+    int distance;
+    int numIntervals;
+    bool lightState;
+} sensorState;
+
 Config* C;
 
 void setup() {
@@ -55,8 +61,6 @@ void setup() {
             .done()
         .init();
 
-    distance = 128;
-    numIntervals = 0;
     pinMode(LED_BUILTIN, OUTPUT);
 
     Serial.println("Opening configuration portal");
@@ -88,23 +92,24 @@ void setup() {
 void loop() {
     Bleeper.handle();
 
-    distance = ultrasonic.read(INC);
-    Serial.printf("distance: %d inches\r\n", distance);
-
-    numIntervals = distance <= C->sonar.triggerDistanceInches
-            ? numIntervals + 1
+    sensorState.distance = ultrasonic.read(INC);
+    sensorState.numIntervals = sensorState.distance <= C->sonar.triggerDistanceInches
+            ? sensorState.numIntervals + 1
             : 0;
 
-    if (numIntervals >= C->sonar.triggerIntervals) {
+    Serial.printf("distance: %d inches, intervals: %d\r\n", sensorState.distance, sensorState.numIntervals);
+
+    if (sensorState.numIntervals >= C->sonar.triggerIntervals) {
         Serial.println("turning light on");
-        lightState = true;
+        sensorState.lightState = true;
         digitalWrite(LED_BUILTIN, LOW);
+        sensorState.numIntervals = 0;
         delay(C->sonar.triggerTimeoutSeconds * ONE_SECOND);
     }
 
-    if (lightState) {
+    if (sensorState.lightState) {
         Serial.println("turning light off");
-        lightState = false;
+        sensorState.lightState = false;
         digitalWrite(LED_BUILTIN, HIGH);
     }
 
