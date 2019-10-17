@@ -12,6 +12,7 @@
 #include <Ultrasonic.h>
 
 #include <Config.h>
+#include <AsyncDelay.h>
 
 #ifndef LED_BUILTIN
 #define LED_BUILTIN  13
@@ -22,8 +23,10 @@ const static int BAUD_RATE = 9600;
 
 const static unsigned int SENSOR_ECHO_PIN = D1;
 const static unsigned int SENSOR_TRIGGER_PIN = D2;
-const static unsigned long SENSOR_TIMEOUT_MS = 1000 * 28;
+const static unsigned long SENSOR_TIMEOUT_MS = 50 * 1000;
 Ultrasonic ultrasonic(SENSOR_TRIGGER_PIN, SENSOR_ECHO_PIN, SENSOR_TIMEOUT_MS);
+
+AsyncDelay triggerDelay;
 
 struct SensorState {
     int distance;
@@ -86,28 +89,33 @@ void setup() {
         Serial.printf("local ip: %s\r\n", WiFi.localIP().toString().c_str());
     }
 
+
     delay(ONE_SECOND);
 }
 
 void loop() {
     Bleeper.handle();
 
-    sensorState.distance = ultrasonic.read(INC);
-    sensorState.numIntervals = sensorState.distance <= C->sonar.triggerDistanceInches
-            ? sensorState.numIntervals + 1
-            : 0;
+    if (sensorState.lightState) {
+        Serial.print(".");
+    } else {
+        sensorState.distance = ultrasonic.read(INC);
+        sensorState.numIntervals = sensorState.distance <= C->sonar.triggerDistanceInches
+                                   ? sensorState.numIntervals + 1
+                                   : 0;
 
-    Serial.printf("distance: %d inches, intervals: %d\r\n", sensorState.distance, sensorState.numIntervals);
+        Serial.printf("distance: %d inches, intervals: %d\r\n", sensorState.distance, sensorState.numIntervals);
+    }
 
     if (sensorState.numIntervals >= C->sonar.triggerIntervals) {
         Serial.println("turning light on");
         sensorState.lightState = true;
         digitalWrite(LED_BUILTIN, LOW);
         sensorState.numIntervals = 0;
-        delay(C->sonar.triggerTimeoutSeconds * ONE_SECOND);
+        triggerDelay.start(C->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
     }
 
-    if (sensorState.lightState) {
+    if (sensorState.lightState && triggerDelay.isExpired()) {
         Serial.println("turning light off");
         sensorState.lightState = false;
         digitalWrite(LED_BUILTIN, HIGH);
