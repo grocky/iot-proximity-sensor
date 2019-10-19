@@ -43,8 +43,8 @@ public:
 private:
     void setup();
     BleeperClass* bleeper;
-    CallbackFn loggingFunction;
     int baudRate;
+    CallbackFn loggingFunction;
 };
 
 #endif //IOT_PROXIMITY_SENSOR_PROJECTCONFIGURATION_H
