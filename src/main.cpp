@@ -19,6 +19,8 @@
 #endif
 
 const static unsigned int ONE_SECOND = 1000;
+const static unsigned int HALF_SECOND = 500;
+
 const static int BAUD_RATE = 9600;
 
 const static unsigned int SENSOR_ECHO_PIN = D1;
@@ -29,24 +31,17 @@ Ultrasonic ultrasonic(SENSOR_TRIGGER_PIN, SENSOR_ECHO_PIN, SENSOR_TIMEOUT_MS);
 AsyncDelay triggerDelay;
 
 struct SensorState {
-    u_int distance;
+    int distance;
     int numIntervals;
     bool lightState;
 } sensorState;
 
 ProjectConfiguration* config;
 
-void setup() {
-    Serial.begin(BAUD_RATE);
-    delay(ONE_SECOND);
-    Serial.println("Initializing...");
-
-    config = new ProjectConfiguration(BAUD_RATE);
-
-    pinMode(LED_BUILTIN, OUTPUT);
-
+void setupWifi() {
     Serial.println("Opening configuration portal");
     digitalWrite(LED_BUILTIN, LOW);
+
     WiFiManager wifiManager;
 
     if (!wifiManager.autoConnect()) {
@@ -67,9 +62,19 @@ void setup() {
     } else {
         Serial.printf("local ip: %s\r\n", WiFi.localIP().toString().c_str());
     }
+}
 
+void setup() {
+    Serial.begin(BAUD_RATE);
+    delay(HALF_SECOND);
 
-    delay(ONE_SECOND);
+    Serial.println("Initializing...");
+    pinMode(LED_BUILTIN, OUTPUT);
+
+    config = new ProjectConfiguration(BAUD_RATE);
+    setupWifi();
+
+    delay(2 * ONE_SECOND);
 }
 
 void loop() {
@@ -78,7 +83,7 @@ void loop() {
     if (sensorState.lightState) {
         Serial.print(".");
     } else {
-        sensorState.distance = ultrasonic.read(INC);
+        sensorState.distance = (int)ultrasonic.read(INC);
         sensorState.numIntervals = sensorState.distance <= config->sonar.triggerDistanceInches
                                    ? sensorState.numIntervals + 1
                                    : 0;
