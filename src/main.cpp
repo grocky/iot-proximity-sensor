@@ -27,7 +27,8 @@ const static unsigned int SENSOR_ECHO_PIN = D1;
 const static unsigned int SENSOR_TRIGGER_PIN = D2;
 const static unsigned long SENSOR_TIMEOUT_MS = 20 * 1000;
 
-AsyncDelay triggerDelay;
+AsyncDelay* triggerDelay;
+AsyncDelay* sensorReadDelay;
 
 struct SensorState {
     int numIntervals;
@@ -76,42 +77,59 @@ void setup() {
 
     setupWifi();
 
+    sensorReadDelay = new AsyncDelay(config->sonar.intervalDelayMilliseconds, AsyncDelay::MILLIS);
+    triggerDelay = new AsyncDelay(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
+
     delay(2 * ONE_SECOND);
 }
+
 
 void loop() {
     config->handle();
 
-    int distance = (int)ultrasonic->read(INC);
+    // sensorHandler
+    if (sensorReadDelay->isExpired()) {
+        if (!sensorState.lightState) {
+//            Serial.printf("sensorReadDelay: delay: %6ld ms, expiry: %6ld, duration: %6ld ms, isExpired: %d\r\n",
+//                          sensorReadDelay->getDelay(), sensorReadDelay->getExpiry(), sensorReadDelay->getDuration(), sensorReadDelay->isExpired());
 
-    // With the JSN-SR04T distance sensor there's a bit of noise when reading.
-    if (!distance) {
-        return;
+            int distance = (int)ultrasonic->read(INC);
+
+            // With the JSN-SR04T distance sensor there's a bit of noise when reading.
+            if (!distance) {
+                return;
+            }
+
+            sensorState.numIntervals = distance <= config->sonar.triggerDistanceInches
+                                       ? sensorState.numIntervals + 1
+                                       : 0;
+
+            Serial.printf("distance: %d inches, intervals: %d\r\n", distance, sensorState.numIntervals);
+        } else {
+            Serial.print(".");
+        }
+
+        // Using start to allow config updates...
+        sensorReadDelay->start(config->sonar.intervalDelayMilliseconds, AsyncDelay::MILLIS);
     }
 
-    if (sensorState.lightState) {
-        Serial.print(".");
-    } else {
-        sensorState.numIntervals = distance <= config->sonar.triggerDistanceInches
-                                   ? sensorState.numIntervals + 1
-                                   : 0;
-
-        Serial.printf("distance: %d inches, intervals: %d\r\n", distance, sensorState.numIntervals);
-    }
-
+    // triggerHandler
     if (sensorState.numIntervals >= config->sonar.triggerIntervals) {
         Serial.println("turning light on");
         sensorState.lightState = true;
         digitalWrite(LED_BUILTIN, LOW);
         sensorState.numIntervals = 0;
-        triggerDelay.start(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
+
+        // Using start to allow config updates...
+        triggerDelay->start(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
     }
 
-    if (sensorState.lightState && triggerDelay.isExpired()) {
+    if (sensorState.lightState && triggerDelay->isExpired()) {
+//        Serial.printf("triggerDelay: delay: %6ld ms, expiry: %6ld, duration: %6ld ms, isExpired: %d\r\n",
+//                      triggerDelay->getDelay(), triggerDelay->getExpiry(), triggerDelay->getDuration(), triggerDelay->isExpired());
+
         Serial.println("turning light off");
         sensorState.lightState = false;
         digitalWrite(LED_BUILTIN, HIGH);
     }
-
-    delay(config->sonar.intervalDelayMilliseconds);
 }
