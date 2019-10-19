@@ -7,16 +7,14 @@ ProjectConfiguration::ProjectConfiguration(int baudRate, CallbackFn loggingFunct
 
 // private
 void ProjectConfiguration::setup() {
+    const std::vector<StringConvertibleVariable*>& variables = this->getVariables();
+    std::set<VariableAddress> allVars(variables.begin(), variables.end());
+
     this->bleeper
         ->verbose(this->baudRate)
         .configuration
             .set(this)
-            .addObserver(new SettingsCallbackObserver(this->loggingFunction), {
-                    &this->sonar.triggerDistanceInches,
-                    &this->sonar.triggerIntervals,
-                    &this->sonar.intervalDelayMilliseconds,
-                    &this->sonar.triggerTimeoutSeconds
-            })
+            .addObserver(new SettingsCallbackObserver(this->loggingFunction), allVars)
             .done()
         .configurationInterface
             .addDefaultWebServer()

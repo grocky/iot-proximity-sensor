@@ -74,6 +74,14 @@ void setup() {
     config = new ProjectConfiguration(BAUD_RATE);
     ultrasonic = new Ultrasonic(SENSOR_TRIGGER_PIN, SENSOR_ECHO_PIN, SENSOR_TIMEOUT_MS);
 
+    CallbackFn updateLogger = [](const ConfigurationPropertyChange value) {
+        if (value.key == "log.logLevel") {
+            Log.begin(value.newValue.toInt(), &Serial, false);
+        }
+    };
+
+    config->addObserver(new SettingsCallbackObserver(updateLogger));
+
     setupWifi();
 
     sensorReadDelay = new AsyncDelay(config->sonar.intervalDelayMilliseconds, AsyncDelay::MILLIS);
@@ -83,7 +91,6 @@ void setup() {
 
     delay(2 * ONE_SECOND);
 }
-
 
 void loop() {
     config->handle();

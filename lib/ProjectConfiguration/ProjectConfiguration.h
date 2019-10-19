@@ -12,21 +12,30 @@ public:
     persistentIntVar(triggerTimeoutSeconds, 60);
 };
 
+class LogConfig: public Configuration {
+public:
+    intVar(logLevel,4)
+};
+
 /**
  * sonar:
  *      triggerDistanceInches: 6
  *      intervalDelayMilliseconds: 100
  *      triggerIntervals: 5
  *      triggerTimeoutSeconds: 60
+ * log:
+ *      logLevel: 4
  */
 class ProjectConfiguration: public RootConfiguration {
 public:
     ProjectConfiguration(int baudRate): ProjectConfiguration(baudRate, [](const ConfigurationPropertyChange value) {
-        Serial.println("Configuration " + value.key + " changed from " + value.oldValue + " to " + value.newValue);
+        Serial.printf("Configuration %s changed from %s to %s\r\n", value.key.c_str(), value.oldValue.c_str(), value.newValue.c_str());
     }) {};
+
     ProjectConfiguration(int baudRate, CallbackFn loggingFunction);
 
     subconfig(SonarConfig, sonar);
+    subconfig(LogConfig, log);
 
     void handle() {
         this->bleeper->handle();
