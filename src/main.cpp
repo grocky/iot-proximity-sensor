@@ -92,27 +92,26 @@ void setup() {
     delay(2 * ONE_SECOND);
 }
 
-void loop() {
-    config->handle();
+SensorState handleSensorRead(SensorState prev) {
+    SensorState next = prev;
 
-    // sensorHandler
     if (sensorReadDelay->isExpired()) {
-        if (!sensorState.lightState) {
+        if (!prev.lightState) {
             Log.verbose("sensorReadDelay: delay: %l ms, expiry: %l, duration: %l ms, isExpired: %d\r\n",
-                          sensorReadDelay->getDelay(), sensorReadDelay->getExpiry(), sensorReadDelay->getDuration(), sensorReadDelay->isExpired());
+                        sensorReadDelay->getDelay(), sensorReadDelay->getExpiry(), sensorReadDelay->getDuration(), sensorReadDelay->isExpired());
 
             int distance = (int)ultrasonic->read(INC);
 
             // With the JSN-SR04T distance sensor there's a bit of noise when reading.
             if (!distance) {
-                return;
+                return next;
             }
 
-            sensorState.numIntervals = distance <= config->sonar.triggerDistanceInches
-                                       ? sensorState.numIntervals + 1
+            next.numIntervals = distance <= config->sonar.triggerDistanceInches
+                                       ? prev.numIntervals + 1
                                        : 0;
 
-            Log.trace("distance: %d inches, intervals: %d\r\n", distance, sensorState.numIntervals);
+            Log.trace("distance: %d inches, intervals: %d\r\n", distance, next.numIntervals);
         } else {
             Log.trace(".");
         }
@@ -120,6 +119,13 @@ void loop() {
         // Using start to allow config updates...
         sensorReadDelay->start(config->sonar.intervalDelayMilliseconds, AsyncDelay::MILLIS);
     }
+
+    return next;
+}
+
+void loop() {
+    config->handle();
+    sensorState = handleSensorRead(sensorState);
 
     // triggerHandler
     if (sensorState.numIntervals >= config->sonar.triggerIntervals) {
