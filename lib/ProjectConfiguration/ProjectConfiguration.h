@@ -12,6 +12,11 @@ public:
     persistentIntVar(triggerTimeoutSeconds, 60);
 };
 
+class ServoConfig: public Configuration {
+public:
+    persistentIntVar(intervalDelaySeconds, 10);
+};
+
 class LogConfig: public Configuration {
 public:
     intVar(logLevel,4)
@@ -23,6 +28,8 @@ public:
  *      intervalDelayMilliseconds: 100
  *      triggerIntervals: 5
  *      triggerTimeoutSeconds: 60
+ * servo:
+ *      intervalDelaySeconds: 5
  * log:
  *      logLevel: 4
  */
@@ -35,6 +42,7 @@ public:
     ProjectConfiguration(int baudRate, CallbackFn loggingFunction);
 
     subconfig(SonarConfig, sonar);
+    subconfig(ServoConfig, servo);
     subconfig(LogConfig, log);
 
     void handle() {
