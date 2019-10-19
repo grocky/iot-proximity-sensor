@@ -42,7 +42,6 @@ void setup() {
     Serial.println("Initializing...");
 
     config = new ProjectConfiguration(BAUD_RATE);
-    config->setup();
 
     pinMode(LED_BUILTIN, OUTPUT);
 

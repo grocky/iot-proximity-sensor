@@ -21,14 +21,18 @@ public:
  */
 class ProjectConfiguration: public RootConfiguration {
 public:
-    ProjectConfiguration(int baudRate);
+    ProjectConfiguration(int baudRate): ProjectConfiguration(baudRate, [](const ConfigurationPropertyChange value) {
+        Serial.println("Configuration " + value.key + " changed from " + value.oldValue + " to " + value.newValue);
+    }) {};
     ProjectConfiguration(int baudRate, CallbackFn loggingFunction);
+
     subconfig(SonarConfig, sonar);
-    void setup();
+
     void handle() {
         this->bleeper->handle();
     }
 private:
+    void setup();
     BleeperClass* bleeper;
     CallbackFn loggingFunction;
     int baudRate;
