@@ -34,15 +34,15 @@ struct SensorState {
     bool lightState;
 } sensorState;
 
-ProjectConfiguration* C;
+ProjectConfiguration* config;
 
 void setup() {
     Serial.begin(BAUD_RATE);
     delay(ONE_SECOND);
     Serial.println("Initializing...");
 
-    C = new ProjectConfiguration(BAUD_RATE);
-    C->setup();
+    config = new ProjectConfiguration(BAUD_RATE);
+    config->setup();
 
     pinMode(LED_BUILTIN, OUTPUT);
 
@@ -74,25 +74,25 @@ void setup() {
 }
 
 void loop() {
-    Bleeper.handle();
+    config->handle();
 
     if (sensorState.lightState) {
         Serial.print(".");
     } else {
         sensorState.distance = ultrasonic.read(INC);
-        sensorState.numIntervals = sensorState.distance <= C->sonar.triggerDistanceInches
+        sensorState.numIntervals = sensorState.distance <= config->sonar.triggerDistanceInches
                                    ? sensorState.numIntervals + 1
                                    : 0;
 
         Serial.printf("distance: %d inches, intervals: %d\r\n", sensorState.distance, sensorState.numIntervals);
     }
 
-    if (sensorState.numIntervals >= C->sonar.triggerIntervals) {
+    if (sensorState.numIntervals >= config->sonar.triggerIntervals) {
         Serial.println("turning light on");
         sensorState.lightState = true;
         digitalWrite(LED_BUILTIN, LOW);
         sensorState.numIntervals = 0;
-        triggerDelay.start(C->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
+        triggerDelay.start(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
     }
 
     if (sensorState.lightState && triggerDelay.isExpired()) {
@@ -101,5 +101,5 @@ void loop() {
         digitalWrite(LED_BUILTIN, HIGH);
     }
 
-    delay(C->sonar.intervalDelayMilliseconds);
+    delay(config->sonar.intervalDelayMilliseconds);
 }

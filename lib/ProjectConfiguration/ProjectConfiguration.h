@@ -25,7 +25,11 @@ public:
     ProjectConfiguration(int baudRate, CallbackFn loggingFunction);
     subconfig(SonarConfig, sonar);
     void setup();
+    void handle() {
+        this->bleeper->handle();
+    }
 private:
+    BleeperClass* bleeper;
     CallbackFn loggingFunction;
     int baudRate;
 };
