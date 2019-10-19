@@ -123,27 +123,33 @@ SensorState handleSensorRead(SensorState prev) {
     return next;
 }
 
-void loop() {
-    config->handle();
-    sensorState = handleSensorRead(sensorState);
+SensorState handleTrigger(SensorState prev) {
+    SensorState next = prev;
 
-    // triggerHandler
-    if (sensorState.numIntervals >= config->sonar.triggerIntervals) {
-        Log.trace("turning light on");
-        sensorState.lightState = true;
+    if (prev.numIntervals >= config->sonar.triggerIntervals) {
+        Log.trace("turning light on\r\n");
+        next.lightState = true;
         digitalWrite(LED_BUILTIN, LOW);
-        sensorState.numIntervals = 0;
+        next.numIntervals = 0;
 
         // Using start to allow config updates...
         triggerDelay->start(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
     }
 
-    if (sensorState.lightState && triggerDelay->isExpired()) {
-        Log.verbose("triggerDelay: delay: %l ms, expiry: %l, duration: %l ms, isExpired: %d",
+    if (prev.lightState && triggerDelay->isExpired()) {
+        Log.verbose("triggerDelay: delay: %l ms, expiry: %l, duration: %l ms, isExpired: %d\r\n",
                     triggerDelay->getDelay(), triggerDelay->getExpiry(), triggerDelay->getDuration(), triggerDelay->isExpired());
 
-        Log.trace("turning light off");
-        sensorState.lightState = false;
+        Log.trace("turning light off\r\n");
+        next.lightState = false;
         digitalWrite(LED_BUILTIN, HIGH);
     }
+
+    return next;
+}
+
+void loop() {
+    config->handle();
+    sensorState = handleSensorRead(sensorState);
+    sensorState = handleTrigger(sensorState);
 }
