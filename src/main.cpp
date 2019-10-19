@@ -25,18 +25,17 @@ const static int BAUD_RATE = 9600;
 
 const static unsigned int SENSOR_ECHO_PIN = D1;
 const static unsigned int SENSOR_TRIGGER_PIN = D2;
-const static unsigned long SENSOR_TIMEOUT_MS = 50 * 1000;
-Ultrasonic ultrasonic(SENSOR_TRIGGER_PIN, SENSOR_ECHO_PIN, SENSOR_TIMEOUT_MS);
+const static unsigned long SENSOR_TIMEOUT_MS = 20 * 1000;
 
 AsyncDelay triggerDelay;
 
 struct SensorState {
-    int distance;
     int numIntervals;
     bool lightState;
 } sensorState;
 
 ProjectConfiguration* config;
+Ultrasonic* ultrasonic;
 
 void setupWifi() {
     Serial.println("Opening configuration portal");
@@ -67,11 +66,14 @@ void setupWifi() {
 void setup() {
     Serial.begin(BAUD_RATE);
     delay(HALF_SECOND);
+    Serial.flush();
 
     Serial.println("Initializing...");
     pinMode(LED_BUILTIN, OUTPUT);
 
     config = new ProjectConfiguration(BAUD_RATE);
+    ultrasonic = new Ultrasonic(SENSOR_TRIGGER_PIN, SENSOR_ECHO_PIN, SENSOR_TIMEOUT_MS);
+
     setupWifi();
 
     delay(2 * ONE_SECOND);
@@ -80,15 +82,21 @@ void setup() {
 void loop() {
     config->handle();
 
+    int distance = (int)ultrasonic->read(INC);
+
+    // With the JSN-SR04T distance sensor there's a bit of noise when reading.
+    if (!distance) {
+        return;
+    }
+
     if (sensorState.lightState) {
         Serial.print(".");
     } else {
-        sensorState.distance = (int)ultrasonic.read(INC);
-        sensorState.numIntervals = sensorState.distance <= config->sonar.triggerDistanceInches
+        sensorState.numIntervals = distance <= config->sonar.triggerDistanceInches
                                    ? sensorState.numIntervals + 1
                                    : 0;
 
-        Serial.printf("distance: %d inches, intervals: %d\r\n", sensorState.distance, sensorState.numIntervals);
+        Serial.printf("distance: %d inches, intervals: %d\r\n", distance, sensorState.numIntervals);
     }
 
     if (sensorState.numIntervals >= config->sonar.triggerIntervals) {
