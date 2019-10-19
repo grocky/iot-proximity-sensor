@@ -8,9 +8,10 @@
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
 
-#include <WiFiManager.h>
-#include <Ultrasonic.h>
+#include <ArduinoLog.h>
 #include <AsyncDelay.h>
+#include <Ultrasonic.h>
+#include <WiFiManager.h>
 
 #include <ProjectConfiguration.h>
 
@@ -21,7 +22,7 @@
 const static unsigned int ONE_SECOND = 1000;
 const static unsigned int HALF_SECOND = 500;
 
-const static int BAUD_RATE = 9600;
+const static int BAUD_RATE = 250000;
 
 const static unsigned int SENSOR_ECHO_PIN = D1;
 const static unsigned int SENSOR_TRIGGER_PIN = D2;
@@ -66,9 +67,7 @@ void setupWifi() {
 
 void setup() {
     Serial.begin(BAUD_RATE);
-    delay(HALF_SECOND);
-    Serial.flush();
-
+    Serial.println();
     Serial.println("Initializing...");
     pinMode(LED_BUILTIN, OUTPUT);
 
@@ -80,6 +79,8 @@ void setup() {
     sensorReadDelay = new AsyncDelay(config->sonar.intervalDelayMilliseconds, AsyncDelay::MILLIS);
     triggerDelay = new AsyncDelay(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
 
+    Log.begin(config->log.logLevel, &Serial, false);
+
     delay(2 * ONE_SECOND);
 }
 
@@ -90,8 +91,8 @@ void loop() {
     // sensorHandler
     if (sensorReadDelay->isExpired()) {
         if (!sensorState.lightState) {
-//            Serial.printf("sensorReadDelay: delay: %6ld ms, expiry: %6ld, duration: %6ld ms, isExpired: %d\r\n",
-//                          sensorReadDelay->getDelay(), sensorReadDelay->getExpiry(), sensorReadDelay->getDuration(), sensorReadDelay->isExpired());
+            Log.verbose("sensorReadDelay: delay: %l ms, expiry: %l, duration: %l ms, isExpired: %d\r\n",
+                          sensorReadDelay->getDelay(), sensorReadDelay->getExpiry(), sensorReadDelay->getDuration(), sensorReadDelay->isExpired());
 
             int distance = (int)ultrasonic->read(INC);
 
@@ -104,9 +105,9 @@ void loop() {
                                        ? sensorState.numIntervals + 1
                                        : 0;
 
-            Serial.printf("distance: %d inches, intervals: %d\r\n", distance, sensorState.numIntervals);
+            Log.trace("distance: %d inches, intervals: %d\r\n", distance, sensorState.numIntervals);
         } else {
-            Serial.print(".");
+            Log.trace(".");
         }
 
         // Using start to allow config updates...
@@ -115,7 +116,7 @@ void loop() {
 
     // triggerHandler
     if (sensorState.numIntervals >= config->sonar.triggerIntervals) {
-        Serial.println("turning light on");
+        Log.trace("turning light on");
         sensorState.lightState = true;
         digitalWrite(LED_BUILTIN, LOW);
         sensorState.numIntervals = 0;
@@ -125,10 +126,10 @@ void loop() {
     }
 
     if (sensorState.lightState && triggerDelay->isExpired()) {
-//        Serial.printf("triggerDelay: delay: %6ld ms, expiry: %6ld, duration: %6ld ms, isExpired: %d\r\n",
-//                      triggerDelay->getDelay(), triggerDelay->getExpiry(), triggerDelay->getDuration(), triggerDelay->isExpired());
+        Log.verbose("triggerDelay: delay: %l ms, expiry: %l, duration: %l ms, isExpired: %d",
+                    triggerDelay->getDelay(), triggerDelay->getExpiry(), triggerDelay->getDuration(), triggerDelay->isExpired());
 
-        Serial.println("turning light off");
+        Log.trace("turning light off");
         sensorState.lightState = false;
         digitalWrite(LED_BUILTIN, HIGH);
     }
