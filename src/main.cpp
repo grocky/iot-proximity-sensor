@@ -7,12 +7,12 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
+
 #include <WiFiManager.h>
-
 #include <Ultrasonic.h>
-
-#include <Config.h>
 #include <AsyncDelay.h>
+
+#include <ProjectConfiguration.h>
 
 #ifndef LED_BUILTIN
 #define LED_BUILTIN  13
@@ -29,40 +29,20 @@ Ultrasonic ultrasonic(SENSOR_TRIGGER_PIN, SENSOR_ECHO_PIN, SENSOR_TIMEOUT_MS);
 AsyncDelay triggerDelay;
 
 struct SensorState {
-    int distance;
+    u_int distance;
     int numIntervals;
     bool lightState;
 } sensorState;
 
-Config* C;
+ProjectConfiguration* C;
 
 void setup() {
     Serial.begin(BAUD_RATE);
     delay(ONE_SECOND);
     Serial.println("Initializing...");
-    C = new Config();
-    std::function<void(const ConfigurationPropertyChange)> logConfigChange = [](const ConfigurationPropertyChange value) {
-        Serial.println("Configuration " + value.key + " changed from " + value.oldValue + " to " + value.newValue);
-    };
 
-    Bleeper
-        .verbose(BAUD_RATE)
-        .configuration
-            .set(C)
-            .addObserver(new SettingsCallbackObserver(logConfigChange), {
-                &C->sonar.triggerDistanceInches,
-                &C->sonar.triggerIntervals,
-                &C->sonar.intervalDelayMilliseconds,
-                &C->sonar.triggerTimeoutSeconds
-            })
-            .done()
-        .configurationInterface
-            .addDefaultWebServer()
-            .done()
-        .storage
-            .set(new SPIFFSStorage()) // SPIFFS
-            .done()
-        .init();
+    C = new ProjectConfiguration(BAUD_RATE);
+    C->setup();
 
     pinMode(LED_BUILTIN, OUTPUT);
 
