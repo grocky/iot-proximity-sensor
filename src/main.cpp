@@ -106,6 +106,7 @@ void setup() {
 
     armServo.attach(SERVO_PIN);
     sensorState.servoAngle = config->servo.angle;
+    armServo.write(sensorState.servoAngle);
 
     sensorReadDelay = new AsyncDelay(config->sonar.intervalDelayMilliseconds, AsyncDelay::MILLIS);
     triggerDelay = new AsyncDelay(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
@@ -171,17 +172,11 @@ SensorState handleMotionDetection(SensorState prev) {
     return next;
 }
 
-int nextServoAngle(int curAngle) {
-    switch(curAngle) {
-        case 0:
-            return 90;
-        case 90:
-            return 180;
-        case 180:
-            return 0;
-        default:
-            return 90;
-    }
+void executeServoSequence(Servo servo) {
+    servo.write(150);
+    delay(3 * ONE_SECOND);
+    servo.write(60);
+    delay(2 * ONE_SECOND);
 }
 
 SensorState handleServoUpdate(SensorState prev) {
@@ -189,13 +184,12 @@ SensorState handleServoUpdate(SensorState prev) {
     if (prev.motionDetected && !prev.servoInProgress) {
         next.startServo = true;
         next.servoInProgress = true;
-        next.servoAngle = nextServoAngle(prev.servoAngle);
         Log.verbose("Updating servo state: nextState: starting, %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
     } else if (!prev.motionDetected && prev.servoInProgress) {
         next.servoInProgress = false;
         Log.verbose("Updating servo state: nextState: stopped, %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
     } else if (prev.startServo) {
-        armServo.write(prev.servoAngle);
+        executeServoSequence(armServo);
         next.servoInProgress = true;
         next.startServo = false;
         Log.verbose("Updating servo state: nextState: running, %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
