@@ -2,7 +2,7 @@
 digraph servoStates {
   graph [ dpi = 300 ];
   node[shape=record style="rounded"];
-  off [label="{off | {{motionDetected|false} | {servoInProgress|false} | {startServo|false}}}"];
+  stopped [label="{stopped | {{motionDetected|false} | {servoInProgress|false} | {startServo|false}}}"];
   motionDetected [label="{motionDetected | {{motionDetected|true} | {servoInProgress|false} | {startServo|false}}}"];
   starting [label="{starting | {{motionDetected|X} | {servoInProgress|X} | {startServo|true}}}"];
   running [label="{running | {{motionDetected|true} | {servoInProgress|true} | {startServo|false}}}"];
@@ -10,12 +10,12 @@ digraph servoStates {
   node [shape = point ]; start
 
   start -> starting;
-  off -> motionDetected [label="sensor triggered" style=dotted];
+  stopped -> motionDetected [label="sensor triggered" style=dotted];
   motionDetected -> starting;
   starting -> running;
   running -> servoStopping [label="trigger expired" style=dotted];
   starting -> servoStopping;
-  servoStopping -> off;
+  servoStopping -> stopped;
 }
 @enddot
 @startdot graph
@@ -46,15 +46,15 @@ digraph servoStates {
     shape=record
     style=rounded
     motionDetected [label="motionDetected | exit/ determine next angle"]
-    servoStopping -> off;
-    off -> motionDetected [label="sensor triggered" style=dotted];
+    servoStopping -> stopped;
+    stopped -> motionDetected [label="sensor triggered" style=dotted];
     offInit [shape=point]
     offInit -> servoStopping;
   }
 
   start -> starting [label="application start" lhead=cluster0];
 
-  running -> off [label="trigger expired" style=dotted lhead=cluster1]
+  running -> stopped [label="trigger expired" style=dotted lhead=cluster1]
   config -> starting [label="angle updated\nfrom config" lhead=cluster0];
   motionDetected -> starting [lhead=cluster0];
 }

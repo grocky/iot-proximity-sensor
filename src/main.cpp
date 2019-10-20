@@ -44,14 +44,6 @@ struct SensorState {
 
 ProjectConfiguration* config;
 Ultrasonic* ultrasonic;
-
-enum ServoState {
-    Updating,
-    Stopping,
-    Running,
-    Off
-};
-
 Servo armServo;
 
 void setupWifi() {
@@ -191,42 +183,24 @@ int nextServoAngle(int curAngle) {
             return 90;
     }
 }
-typedef std::function<SensorState(const SensorState)> SensorStateReducer;
-
-SensorStateReducer reduceServoState(SensorState s) {
-    if (s.motionDetected && !s.servoInProgress) {
-        return [](const SensorState p) {
-            SensorState next = p;
-            next.startServo = true;
-            next.servoInProgress = true;
-            next.servoAngle = nextServoAngle(p.servoAngle);
-            return next;
-        };
-    } else if (!s.motionDetected && s.servoInProgress) {
-        return [](const SensorState p) {
-            SensorState next = p;
-            next.servoInProgress = false;
-            return next;
-        };
-    } else if (s.startServo) {
-        return [](const SensorState p) {
-            SensorState next = p;
-            armServo.write(p.servoAngle);
-            next.servoInProgress = true;
-            next.startServo = false;
-            return next;
-        };
-    } else {
-        return [](const SensorState p) {
-            return p;
-        };
-    }
-}
 
 SensorState handleServoUpdate(SensorState prev) {
     SensorState next = prev;
-    SensorStateReducer reducer = reduceServoState(prev);
-    return reducer(prev);
+    if (prev.motionDetected && !prev.servoInProgress) {
+        next.startServo = true;
+        next.servoInProgress = true;
+        next.servoAngle = nextServoAngle(prev.servoAngle);
+        Log.verbose("Updating servo state: nextState: starting, %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
+    } else if (!prev.motionDetected && prev.servoInProgress) {
+        next.servoInProgress = false;
+        Log.verbose("Updating servo state: nextState: stopped, %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
+    } else if (prev.startServo) {
+        armServo.write(prev.servoAngle);
+        next.servoInProgress = true;
+        next.startServo = false;
+        Log.verbose("Updating servo state: nextState: running, %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
+    }
+    return next;
 }
 
 void loop() {
