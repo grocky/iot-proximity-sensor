@@ -1,0 +1,20 @@
+@startdot
+digraph servoStates {
+  graph [ dpi = 300 ];
+  node[shape=record style="rounded"];
+  off [label="{off | {{motionDetected|false} | {servoInProgress|false} | {startServo|false}}}"];
+  servoStart [label="{servoStart | {{motionDetected|true} | {servoInProgress|false} | {startServo|false}}}"];
+  servoOn [label="{servoOn | {{motionDetected|X} | {servoInProgress|X} | {startServo|true}}}"];
+  servoPending [label="{servoPending | {{motionDetected|true} | {servoInProgress|true} | {startServo|false}}}"];
+  servoMovementEnd [label="{servoMovementEnd | {{motionDetected|false} | {servoInProgress|true} | {startServo|false}}}"];
+  start[style="filled, rounded"];
+
+  start -> servoOn;
+  off -> servoStart [label="sensor triggered" style=dotted];
+  servoStart -> servoOn;
+  servoOn -> servoPending;
+  servoPending -> servoMovementEnd [label="trigger expired" style=dotted];
+  servoOn -> servoMovementEnd;
+  servoMovementEnd -> off;
+}
+@enddot

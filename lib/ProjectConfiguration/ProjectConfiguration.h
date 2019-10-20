@@ -14,12 +14,12 @@ public:
 
 class ServoConfig: public Configuration {
 public:
-    persistentIntVar(intervalDelaySeconds, 10);
+    intVar(angle, 90);
 };
 
 class LogConfig: public Configuration {
 public:
-    intVar(logLevel,4)
+    intVar(logLevel,5)
 };
 
 /**
@@ -29,7 +29,7 @@ public:
  *      triggerIntervals: 5
  *      triggerTimeoutSeconds: 60
  * servo:
- *      intervalDelaySeconds: 5
+ *      angle: 90
  * log:
  *      logLevel: 4
  */

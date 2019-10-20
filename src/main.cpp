@@ -33,12 +33,13 @@ const static unsigned int SERVO_PIN = D4;
 
 AsyncDelay* triggerDelay;
 AsyncDelay* sensorReadDelay;
-AsyncDelay* servoDelay;
 
 struct SensorState {
     int numIntervals = 0;
     bool motionDetected = false;
     u_int servoAngle = 90;
+    bool startServo = true;
+    bool servoInProgress = false;
 } sensorState;
 
 ProjectConfiguration* config;
@@ -80,7 +81,15 @@ void setupConfiguration() {
         }
     };
 
+    CallbackFn updateServo = [](const ConfigurationPropertyChange value) {
+        if (value.key == "servo.angle") {
+            sensorState.servoAngle = value.newValue.toInt();
+            sensorState.startServo = true;
+        }
+    };
+
     config->addObserver(new SettingsCallbackObserver(updateLogger));
+    config->addObserver(new SettingsCallbackObserver(updateServo));
 }
 
 void setup() {
@@ -94,12 +103,12 @@ void setup() {
     setupWifi();
     setupConfiguration();
     ultrasonic = new Ultrasonic(SENSOR_TRIGGER_PIN, SENSOR_ECHO_PIN, SENSOR_TIMEOUT_MS);
+
     armServo.attach(SERVO_PIN);
-    armServo.write(sensorState.servoAngle);
+    sensorState.servoAngle = config->servo.angle;
 
     sensorReadDelay = new AsyncDelay(config->sonar.intervalDelayMilliseconds, AsyncDelay::MILLIS);
     triggerDelay = new AsyncDelay(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
-    servoDelay = new AsyncDelay(config->servo.intervalDelaySeconds * ONE_SECOND, AsyncDelay::MILLIS);
 
     Log.begin(config->log.logLevel, &Serial, false);
 
@@ -162,26 +171,50 @@ SensorState handleMotionDetection(SensorState prev) {
     return next;
 }
 
+int nextServoAngle(int curAngle) {
+    switch(curAngle) {
+        case 0:
+            return 90;
+        case 90:
+            return 180;
+        case 180:
+            return 0;
+        default:
+            return 90;
+    }
+}
+
+/**
+ * @image html ../docs/servo-states.png
+ *
+ * @param prev
+ * @return
+ */
 SensorState handleServoUpdate(SensorState prev) {
     SensorState next = prev;
-    if (prev.motionDetected && servoDelay->isExpired()) {
-        switch(prev.servoAngle) {
-            case 0:
-                next.servoAngle = 90;
-                break;
-            case 90:
-                next.servoAngle = 180;
-                break;
-            case 180:
-                next.servoAngle = 0;
-                break;
-            default:
-                next.servoAngle = 0;
-        }
-        Log.trace("Updating servo angle to %d\r\n", next.servoAngle);
-        servoDelay->start(config->servo.intervalDelaySeconds * ONE_SECOND, AsyncDelay::MILLIS);
-        armServo.write(next.servoAngle);
+
+    if (prev.motionDetected && !prev.servoInProgress) {
+        Log.trace("Updating servo state from: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", prev.motionDetected, prev.servoInProgress, prev.startServo, prev.servoAngle);
+        next.servoInProgress = true;
+        next.startServo = true;
+        next.servoAngle = nextServoAngle(prev.servoAngle);
+        Log.trace("Updating servo state to: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
     }
+
+    if (!prev.motionDetected && prev.servoInProgress ) {
+        Log.trace("Updating servo state from: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", prev.motionDetected, prev.servoInProgress, prev.startServo, prev.servoAngle);
+        next.servoInProgress = false;
+        Log.trace("Updating servo state to: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
+    }
+
+    if (prev.startServo) {
+        Log.trace("Updating servo state from: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", prev.motionDetected, prev.servoInProgress, prev.startServo, prev.servoAngle);
+        armServo.write(prev.servoAngle);
+        next.servoInProgress = true;
+        next.startServo = false;
+        Log.trace("Updating servo state to: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
+    }
+
     return next;
 }
 
