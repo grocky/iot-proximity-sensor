@@ -44,6 +44,14 @@ struct SensorState {
 
 ProjectConfiguration* config;
 Ultrasonic* ultrasonic;
+
+enum ServoState {
+    Updating,
+    Stopping,
+    Running,
+    Off
+};
+
 Servo armServo;
 
 void setupWifi() {
@@ -183,39 +191,42 @@ int nextServoAngle(int curAngle) {
             return 90;
     }
 }
+typedef std::function<SensorState(const SensorState)> SensorStateReducer;
 
-/**
- * @image html ../docs/servo-states.png
- *
- * @param prev
- * @return
- */
+SensorStateReducer reduceServoState(SensorState s) {
+    if (s.motionDetected && !s.servoInProgress) {
+        return [](const SensorState p) {
+            SensorState next = p;
+            next.startServo = true;
+            next.servoInProgress = true;
+            next.servoAngle = nextServoAngle(p.servoAngle);
+            return next;
+        };
+    } else if (!s.motionDetected && s.servoInProgress) {
+        return [](const SensorState p) {
+            SensorState next = p;
+            next.servoInProgress = false;
+            return next;
+        };
+    } else if (s.startServo) {
+        return [](const SensorState p) {
+            SensorState next = p;
+            armServo.write(p.servoAngle);
+            next.servoInProgress = true;
+            next.startServo = false;
+            return next;
+        };
+    } else {
+        return [](const SensorState p) {
+            return p;
+        };
+    }
+}
+
 SensorState handleServoUpdate(SensorState prev) {
     SensorState next = prev;
-
-    if (prev.motionDetected && !prev.servoInProgress) {
-        Log.trace("Updating servo state from: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", prev.motionDetected, prev.servoInProgress, prev.startServo, prev.servoAngle);
-        next.servoInProgress = true;
-        next.startServo = true;
-        next.servoAngle = nextServoAngle(prev.servoAngle);
-        Log.trace("Updating servo state to: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
-    }
-
-    if (!prev.motionDetected && prev.servoInProgress ) {
-        Log.trace("Updating servo state from: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", prev.motionDetected, prev.servoInProgress, prev.startServo, prev.servoAngle);
-        next.servoInProgress = false;
-        Log.trace("Updating servo state to: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
-    }
-
-    if (prev.startServo) {
-        Log.trace("Updating servo state from: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", prev.motionDetected, prev.servoInProgress, prev.startServo, prev.servoAngle);
-        armServo.write(prev.servoAngle);
-        next.servoInProgress = true;
-        next.startServo = false;
-        Log.trace("Updating servo state to: motionDetected: %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
-    }
-
-    return next;
+    SensorStateReducer reducer = reduceServoState(prev);
+    return reducer(prev);
 }
 
 void loop() {
