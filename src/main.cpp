@@ -84,16 +84,21 @@ void showAnalogRGB(const CRGB& rgb) {
 }
 
 void colorBars() {
-    showAnalogRGB(CRGB::Red);
-    delay(200);
+    CRGB colors[8] = {
+        CRGB::Red,
+        CRGB::Orange,
+        CRGB::Yellow,
+        CRGB::Green,
+        CRGB::Blue,
+        CRGB::Indigo,
+        CRGB::Violet,
+        CRGB::Black
+    };
 
-    showAnalogRGB(CRGB::Green);
-    delay(200);
-
-    showAnalogRGB(CRGB::Blue);
-    delay(200);
-
-    showAnalogRGB(CRGB::Black);
+    for(const CRGB& color : colors) {
+        showAnalogRGB(color);
+        delay(200);
+    }
 }
 
 void setup() {
@@ -120,6 +125,7 @@ void setup() {
     Log.begin(config->log.logLevel, &Serial, false);
 
     colorBars();
+    Log.notice("Initialization complete!\n");
 }
 
 void loop() {
