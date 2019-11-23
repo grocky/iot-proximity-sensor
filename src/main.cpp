@@ -16,6 +16,7 @@
 #include <FastLED.h>
 
 #include <ProjectConfiguration.h>
+#include <PirSensor.h>
 
 #ifndef LED_BUILTIN
 #define LED_BUILTIN  13
@@ -29,12 +30,14 @@ const static int BAUD_RATE = 250000;
 const static unsigned int LIGHTS_BLUE_PIN = D2;
 const static unsigned int LIGHTS_RED_PIN = D3;
 const static unsigned int LIGHTS_GREEN_PIN = D4;
+const static unsigned int MOTION_SENSOR_PIN = D5;
 
 AsyncDelay* triggerDelay;
 
 ProjectConfiguration* config;
 Ultrasonic* ultrasonic;
-Servo armServo;
+
+PirSensor* motion;
 
 void setupWifi() {
     Serial.println("Opening configuration portal");
@@ -82,16 +85,15 @@ void showAnalogRGB(const CRGB& rgb) {
 
 void colorBars() {
     showAnalogRGB(CRGB::Red);
-    delay(500);
+    delay(200);
 
     showAnalogRGB(CRGB::Green);
-    delay(500);
+    delay(200);
 
     showAnalogRGB(CRGB::Blue);
-    delay(500);
+    delay(200);
 
     showAnalogRGB(CRGB::Black);
-    delay(500);
 }
 
 void setup() {
@@ -104,7 +106,6 @@ void setup() {
     pinMode(LIGHTS_RED_PIN, OUTPUT);
 
     colorBars();
-    delay(500);
 
     pinMode(LED_BUILTIN, OUTPUT);
 
@@ -113,27 +114,31 @@ void setup() {
 
     triggerDelay = new AsyncDelay(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
 
+    motion = new PirSensor(MOTION_SENSOR_PIN, 2, false, false);
+    motion->begin();
+
     Log.begin(config->log.logLevel, &Serial, false);
 
-    delay(2 * ONE_SECOND);
+    colorBars();
 }
 
 void loop() {
     config->handle();
 
-    showAnalogRGB(CRGB::GhostWhite);
-    delay(2000);
-    showAnalogRGB(CRGB::Coral);
-    delay(2000);
-    showAnalogRGB(CRGB::WhiteSmoke);
-    delay(2000);
-    showAnalogRGB(CRGB::Teal);
-    delay(2000);
-    showAnalogRGB(CRGB::White);
-    delay(2000);
-    showAnalogRGB(CRGB::SpringGreen);
-    delay(2000);
-    showAnalogRGB(CRGB::Black);
-    delay(5000);
+    int motionValue = motion->sampleValue();
 
+    if (motionValue < 0 ) {
+        return;
+    }
+
+    if (motionValue == 0) {
+        Log.notice("Motion detection off\n");
+    }
+
+    if (motionValue == 1) {
+        Log.notice("Motion detected\n");
+        showAnalogRGB(CRGB::GhostWhite);
+        delay(5000);
+        showAnalogRGB(CRGB::Black);
+    }
 }
