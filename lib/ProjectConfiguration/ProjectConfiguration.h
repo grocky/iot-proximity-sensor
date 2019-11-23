@@ -4,17 +4,15 @@
 
 #include "SettingsCallbackObserver.h"
 
-class SonarConfig: public Configuration {
+class LightsConfig: public Configuration {
 public:
-    persistentIntVar(triggerDistanceInches, 6);
-    persistentIntVar(intervalDelayMilliseconds, 100);
-    persistentIntVar(triggerIntervals, 5);
-    persistentIntVar(triggerTimeoutSeconds, 60);
+    persistentIntVar(durationSeconds, 300);
 };
 
-class ServoConfig: public Configuration {
+class MQTTConfig: public Configuration {
 public:
-    intVar(angle, 90);
+    persistentStringVar(serverHost, "");
+    persistentIntVar(serverPort, 1883);
 };
 
 class LogConfig: public Configuration {
@@ -23,13 +21,10 @@ public:
 };
 
 /**
- * sonar:
- *      green: 6
- *      intervalDelayMilliseconds: 100
- *      triggerIntervals: 5
- *      triggerTimeoutSeconds: 60
- * servo:
- *      angle: 90
+ * lights:
+ *      durationSeconds: 300
+ * mqtt:
+ *      serverHost: foo.com
  * log:
  *      logLevel: 4
  */
@@ -41,8 +36,8 @@ public:
 
     ProjectConfiguration(int baudRate, CallbackFn loggingFunction);
 
-    subconfig(SonarConfig, sonar);
-    subconfig(ServoConfig, servo);
+    subconfig(LightsConfig, lights);
+    subconfig(MQTTConfig, mqtt);
     subconfig(LogConfig, log);
 
     void handle() {

@@ -17,6 +17,7 @@
 
 #include <ProjectConfiguration.h>
 #include <PirSensor.h>
+#include <PubSubClient.h>
 
 #ifndef LED_BUILTIN
 #define LED_BUILTIN  13
@@ -38,6 +39,11 @@ ProjectConfiguration* config;
 Ultrasonic* ultrasonic;
 
 PirSensor* motion;
+
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+
+bool mqttEnabled = false;
 
 void setupWifi() {
     Serial.println("Opening configuration portal");
@@ -101,6 +107,56 @@ void colorBars() {
     }
 }
 
+void triggerLights(bool on) {
+    CRGB color = on ? CRGB::GhostWhite : CRGB::Black;
+    showAnalogRGB(color);
+}
+
+void mqttTopicCallback(char* topic, byte* payload, unsigned int length) {
+    Serial.print("Message arrived [");
+    Serial.print(topic);
+    Serial.print("] ");
+    for (int i = 0; i < length; i++) {
+        Serial.print((char)payload[i]);
+    }
+    Serial.println();
+
+    std::string topicString(topic);
+
+    if (topicString == "home/upstairs/stair-lights") {
+        bool value = (char)payload[0] == '1';
+        return triggerLights(value);
+    }
+}
+
+bool mqttReconnect() {
+    Serial.print("Attempting MQTT connection...");
+
+    mqttClient.setServer(config->mqtt.serverHost.c_str(), config->mqtt.serverPort);
+    mqttClient.setCallback(mqttTopicCallback);
+
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    clientId += String(random(0xffff), HEX);
+    // Attempt to connect
+    if (!mqttClient.connect(clientId.c_str())) {
+        Serial.print("failed, rc=");
+        Serial.print(mqttClient.state());
+        Serial.println(" try again in 5 seconds");
+        // Wait 5 seconds before retrying
+        delay(5000);
+        return false;
+    }
+
+    Serial.println("connected");
+    // Once connected, publish an announcement...
+    mqttClient.publish("home/upstairs/stair-lights/trigger", "hello world");
+    // ... and resubscribe
+    mqttClient.subscribe("home/upstairs/stair-lights");
+
+    return true;
+}
+
 void setup() {
     Serial.begin(BAUD_RATE);
     Serial.println();
@@ -117,7 +173,7 @@ void setup() {
     setupWifi();
     setupConfiguration();
 
-    triggerDelay = new AsyncDelay(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
+    triggerDelay = new AsyncDelay(config->lights.durationSeconds * ONE_SECOND, AsyncDelay::MILLIS);
 
     motion = new PirSensor(MOTION_SENSOR_PIN, 2, false, false);
     motion->begin();
@@ -131,6 +187,15 @@ void setup() {
 void loop() {
     config->handle();
 
+    if (!mqttClient.connected()) {
+        mqttEnabled = config->mqtt.serverHost != "";
+        if (!mqttEnabled || !mqttReconnect()) {
+            return;
+        }
+    }
+
+    mqttClient.loop();
+
     int motionValue = motion->sampleValue();
 
     if (motionValue < 0 ) {
@@ -143,8 +208,5 @@ void loop() {
 
     if (motionValue == 1) {
         Log.notice("Motion detected\n");
-        showAnalogRGB(CRGB::GhostWhite);
-        delay(5000);
-        showAnalogRGB(CRGB::Black);
     }
 }
