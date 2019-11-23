@@ -33,6 +33,9 @@ const static unsigned int LIGHTS_RED_PIN = D3;
 const static unsigned int LIGHTS_GREEN_PIN = D4;
 const static unsigned int MOTION_SENSOR_PIN = D5;
 
+const static char* MQTT_MOTION_TRIGGER_TOPIC = "home/upstairs/stair-lights/trigger";
+const static char* MQTT_LIGHT_STATE_TOPIC = "home/upstairs/stair-lights";
+
 AsyncDelay* triggerDelay;
 
 ProjectConfiguration* config;
@@ -44,6 +47,8 @@ WiFiClient espClient;
 PubSubClient mqttClient(espClient);
 
 bool mqttEnabled = false;
+
+bool isLightOn = false;
 
 void setupWifi() {
     Serial.println("Opening configuration portal");
@@ -80,6 +85,12 @@ void setupConfiguration() {
         }
     };
 
+    CallbackFn updateLightDuration = [](const ConfigurationPropertyChange value) {
+        if (value.key == "lights.durationSeconds") {
+            triggerDelay = new AsyncDelay(config->lights.durationSeconds * ONE_SECOND, AsyncDelay::MILLIS);
+        }
+    };
+
     config->addObserver(new SettingsCallbackObserver(updateLogger));
 }
 
@@ -108,6 +119,7 @@ void colorBars() {
 }
 
 void triggerLights(bool on) {
+    isLightOn = on;
     CRGB color = on ? CRGB::GhostWhite : CRGB::Black;
     showAnalogRGB(color);
 }
@@ -150,9 +162,9 @@ bool mqttReconnect() {
 
     Serial.println("connected");
     // Once connected, publish an announcement...
-    mqttClient.publish("home/upstairs/stair-lights/trigger", "hello world");
+    mqttClient.publish(MQTT_MOTION_TRIGGER_TOPIC, "hello world");
     // ... and resubscribe
-    mqttClient.subscribe("home/upstairs/stair-lights");
+    mqttClient.subscribe(MQTT_LIGHT_STATE_TOPIC);
 
     return true;
 }
@@ -208,5 +220,6 @@ void loop() {
 
     if (motionValue == 1) {
         Log.notice("Motion detected\n");
+        mqttClient.publish(MQTT_MOTION_TRIGGER_TOPIC, "1");
     }
 }
