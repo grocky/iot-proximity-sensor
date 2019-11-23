@@ -13,6 +13,7 @@
 #include <AsyncDelay.h>
 #include <Ultrasonic.h>
 #include <WiFiManager.h>
+#include <FastLED.h>
 
 #include <ProjectConfiguration.h>
 
@@ -25,22 +26,11 @@ const static unsigned int HALF_SECOND = 500;
 
 const static int BAUD_RATE = 250000;
 
-const static unsigned int SENSOR_ECHO_PIN = D1;
-const static unsigned int SENSOR_TRIGGER_PIN = D2;
-const static unsigned long SENSOR_TIMEOUT_MS = 20 * 1000;
-
-const static unsigned int SERVO_PIN = D4;
+const static unsigned int LIGHTS_BLUE_PIN = D2;
+const static unsigned int LIGHTS_RED_PIN = D3;
+const static unsigned int LIGHTS_GREEN_PIN = D4;
 
 AsyncDelay* triggerDelay;
-AsyncDelay* sensorReadDelay;
-
-struct SensorState {
-    int numIntervals = 0;
-    bool motionDetected = false;
-    u_int servoAngle = 90;
-    bool startServo = true;
-    bool servoInProgress = false;
-} sensorState;
 
 ProjectConfiguration* config;
 Ultrasonic* ultrasonic;
@@ -81,15 +71,27 @@ void setupConfiguration() {
         }
     };
 
-    CallbackFn updateServo = [](const ConfigurationPropertyChange value) {
-        if (value.key == "servo.angle") {
-            sensorState.servoAngle = value.newValue.toInt();
-            sensorState.startServo = true;
-        }
-    };
-
     config->addObserver(new SettingsCallbackObserver(updateLogger));
-    config->addObserver(new SettingsCallbackObserver(updateServo));
+}
+
+void showAnalogRGB(const CRGB& rgb) {
+    analogWrite(LIGHTS_RED_PIN, rgb.red );
+    analogWrite(LIGHTS_GREEN_PIN, rgb.green );
+    analogWrite(LIGHTS_BLUE_PIN, rgb.blue );
+}
+
+void colorBars() {
+    showAnalogRGB(CRGB::Red);
+    delay(500);
+
+    showAnalogRGB(CRGB::Green);
+    delay(500);
+
+    showAnalogRGB(CRGB::Blue);
+    delay(500);
+
+    showAnalogRGB(CRGB::Black);
+    delay(500);
 }
 
 void setup() {
@@ -97,18 +99,18 @@ void setup() {
     Serial.println();
     Serial.println("Initializing...");
 
+    pinMode(LIGHTS_GREEN_PIN, OUTPUT);
+    pinMode(LIGHTS_BLUE_PIN, OUTPUT);
+    pinMode(LIGHTS_RED_PIN, OUTPUT);
+
+    colorBars();
+    delay(500);
+
     pinMode(LED_BUILTIN, OUTPUT);
-    pinMode(SERVO_PIN, OUTPUT);
 
     setupWifi();
     setupConfiguration();
-    ultrasonic = new Ultrasonic(SENSOR_TRIGGER_PIN, SENSOR_ECHO_PIN, SENSOR_TIMEOUT_MS);
 
-    armServo.attach(SERVO_PIN);
-    sensorState.servoAngle = config->servo.angle;
-    armServo.write(sensorState.servoAngle);
-
-    sensorReadDelay = new AsyncDelay(config->sonar.intervalDelayMilliseconds, AsyncDelay::MILLIS);
     triggerDelay = new AsyncDelay(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
 
     Log.begin(config->log.logLevel, &Serial, false);
@@ -116,90 +118,22 @@ void setup() {
     delay(2 * ONE_SECOND);
 }
 
-SensorState handleSensorRead(SensorState prev) {
-    SensorState next = prev;
-
-    if (sensorReadDelay->isExpired()) {
-        if (!prev.motionDetected) {
-            Log.verbose("sensorReadDelay: delay: %l ms, expiry: %l, duration: %l ms, isExpired: %d\r\n",
-                        sensorReadDelay->getDelay(), sensorReadDelay->getExpiry(), sensorReadDelay->getDuration(), sensorReadDelay->isExpired());
-
-            int distance = (int)ultrasonic->read(INC);
-
-            // With the JSN-SR04T distance sensor there's a bit of noise when reading.
-            if (!distance) {
-                return next;
-            }
-
-            next.numIntervals = distance <= config->sonar.triggerDistanceInches
-                                       ? prev.numIntervals + 1
-                                       : 0;
-
-            Log.trace("distance: %d inches, intervals: %d\r\n", distance, next.numIntervals);
-        } else {
-            Log.trace(".");
-        }
-
-        // Using start to allow config updates...
-        sensorReadDelay->start(config->sonar.intervalDelayMilliseconds, AsyncDelay::MILLIS);
-    }
-
-    return next;
-}
-
-SensorState handleMotionDetection(SensorState prev) {
-    SensorState next = prev;
-
-    if (prev.numIntervals >= config->sonar.triggerIntervals) {
-        Log.trace("turning light on\r\n");
-        next.motionDetected = true;
-        digitalWrite(LED_BUILTIN, LOW);
-        next.numIntervals = 0;
-
-        // Using start to allow config updates...
-        triggerDelay->start(config->sonar.triggerTimeoutSeconds * ONE_SECOND, AsyncDelay::MILLIS);
-    }
-
-    if (prev.motionDetected && triggerDelay->isExpired()) {
-        Log.verbose("triggerDelay: delay: %l ms, expiry: %l, duration: %l ms, isExpired: %d\r\n",
-                    triggerDelay->getDelay(), triggerDelay->getExpiry(), triggerDelay->getDuration(), triggerDelay->isExpired());
-
-        Log.trace("turning light off\r\n");
-        next.motionDetected = false;
-        digitalWrite(LED_BUILTIN, HIGH);
-    }
-
-    return next;
-}
-
-void executeServoSequence(Servo servo) {
-    servo.write(150);
-    delay(3 * ONE_SECOND);
-    servo.write(60);
-    delay(2 * ONE_SECOND);
-}
-
-SensorState handleServoUpdate(SensorState prev) {
-    SensorState next = prev;
-    if (prev.motionDetected && !prev.servoInProgress) {
-        next.startServo = true;
-        next.servoInProgress = true;
-        Log.verbose("Updating servo state: nextState: starting, %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
-    } else if (!prev.motionDetected && prev.servoInProgress) {
-        next.servoInProgress = false;
-        Log.verbose("Updating servo state: nextState: stopped, %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
-    } else if (prev.startServo) {
-        executeServoSequence(armServo);
-        next.servoInProgress = true;
-        next.startServo = false;
-        Log.verbose("Updating servo state: nextState: running, %d, servoInProgress: %d, startServo: %d, angle: %d\r\n", next.motionDetected, next.servoInProgress, next.startServo, next.servoAngle);
-    }
-    return next;
-}
-
 void loop() {
     config->handle();
-    sensorState = handleSensorRead(sensorState);
-    sensorState = handleMotionDetection(sensorState);
-    sensorState = handleServoUpdate(sensorState);
+
+    showAnalogRGB(CRGB::GhostWhite);
+    delay(2000);
+    showAnalogRGB(CRGB::Coral);
+    delay(2000);
+    showAnalogRGB(CRGB::WhiteSmoke);
+    delay(2000);
+    showAnalogRGB(CRGB::Teal);
+    delay(2000);
+    showAnalogRGB(CRGB::White);
+    delay(2000);
+    showAnalogRGB(CRGB::SpringGreen);
+    delay(2000);
+    showAnalogRGB(CRGB::Black);
+    delay(5000);
+
 }

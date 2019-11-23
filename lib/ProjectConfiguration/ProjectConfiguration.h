@@ -24,7 +24,7 @@ public:
 
 /**
  * sonar:
- *      triggerDistanceInches: 6
+ *      green: 6
  *      intervalDelayMilliseconds: 100
  *      triggerIntervals: 5
  *      triggerTimeoutSeconds: 60
