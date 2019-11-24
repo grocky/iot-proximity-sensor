@@ -7,7 +7,6 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <ESP8266WebServer.h>
-#include <Servo.h>
 
 #include <ArduinoLog.h>
 #include <AsyncDelay.h>
@@ -210,10 +209,6 @@ void loop() {
 
     int motionValue = motion->sampleValue();
 
-    if (motionValue < 0 ) {
-        return;
-    }
-
     if (motionValue == 0) {
         Log.notice("Motion detection off\n");
     }
@@ -221,5 +216,14 @@ void loop() {
     if (motionValue == 1) {
         Log.notice("Motion detected\n");
         mqttClient.publish(MQTT_MOTION_TRIGGER_TOPIC, "1");
+
+        // Temporary until automation controller is set up...
+        triggerDelay->restart();
+        mqttClient.publish(MQTT_LIGHT_STATE_TOPIC, "1");
+    }
+
+    // Temporary until automation controller is set up...
+    if (isLightOn && triggerDelay->isExpired()) {
+        mqttClient.publish(MQTT_LIGHT_STATE_TOPIC, "0");
     }
 }
