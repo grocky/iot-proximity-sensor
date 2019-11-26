@@ -216,14 +216,5 @@ void loop() {
     if (motionValue == 1) {
         Log.notice("Motion detected\n");
         mqttClient.publish(MQTT_MOTION_TRIGGER_TOPIC, "1");
-
-        // Temporary until automation controller is set up...
-        triggerDelay->restart();
-        mqttClient.publish(MQTT_LIGHT_STATE_TOPIC, "1");
-    }
-
-    // Temporary until automation controller is set up...
-    if (isLightOn && triggerDelay->isExpired()) {
-        mqttClient.publish(MQTT_LIGHT_STATE_TOPIC, "0");
     }
 }
