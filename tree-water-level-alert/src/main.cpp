@@ -15,26 +15,37 @@ WiFiClient wiFiClient;
 PubSubClient mqttClient(wiFiClient);
 
 static const int BAUD_RATE = 9600;
-static const uint8  PIN_SENSOR_1 = D5;
-const static char* MQTT_TREE_TOPIC= "home/upstairs/christmas-tree";
-const static char* MQTT_TREE_TRIGGER_TOPIC= "home/upstairs/christmas-tree/trigger";
-const static char* MQTT_TREE_LEVEL_TOPIC= "home/upstairs/christmas-tree/level";
-static const int NUM_SENSORS = 1;
 
 const int ONE_SECOND_MS = 1000;
 
+const static char* MQTT_TREE_TOPIC= "home/upstairs/christmas-tree";
+const static char* MQTT_TREE_TRIGGER_TOPIC= "home/upstairs/christmas-tree/trigger";
+const static char* MQTT_TREE_LEVEL_TOPIC= "home/upstairs/christmas-tree/level";
 bool mqttEnabled = false;
 
+// sensors config
+static const uint8  PIN_SENSOR_1 = D5;
+static const uint8  PIN_SENSOR_2 = D6;
+static const int NUM_SENSORS = 2;
 struct WaterLevelSensor {
     int pin;
     int depth;
+    char *label;
     bool currentState;
-} sensor1 = { PIN_SENSOR_1, 100, false };
+} sensor1 = { PIN_SENSOR_1, 30, "2-inch level", false },
+  sensor2 = { PIN_SENSOR_2, 70, "5-inch level", false };
 
 struct ApplicationState {
     unsigned long lastPublishTime = 0;
     WaterLevelSensor* levels[NUM_SENSORS];
 } currentState;
+
+struct WaterLevelStats {
+    int waterLevel = 0;
+    bool shouldPublishImmediately = false;
+} waterLevelStats;
+
+WaterLevelStats* calculateWaterLevel(ApplicationState* state);
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
     Serial.print("Message arrived [");
@@ -73,6 +84,11 @@ bool mqttReconnect() {
     Serial.printf("mqtt client connected: %s\n", clientId.c_str());
     // Once connected, publish an announcement...
     mqttClient.publish(MQTT_TREE_TOPIC, "1");
+
+    WaterLevelStats* pWaterLevelStats = calculateWaterLevel(&currentState);
+    Serial.printf("publishing water level: %d\n", pWaterLevelStats->waterLevel);
+    mqttClient.publish(MQTT_TREE_LEVEL_TOPIC, String(pWaterLevelStats->waterLevel).c_str());
+
     // ... and resubscribe
     mqttClient.subscribe(MQTT_TREE_TRIGGER_TOPIC);
     Serial.printf("Subscribed to %s\n", MQTT_TREE_LEVEL_TOPIC);
@@ -122,6 +138,7 @@ void setupConfiguration() {
 
 void setup() {
     pinMode(PIN_SENSOR_1, INPUT_PULLUP);
+    pinMode(PIN_SENSOR_2, INPUT_PULLUP);
     Serial.begin(BAUD_RATE);
 
     delay(1000);
@@ -132,6 +149,7 @@ void setup() {
     setupConfiguration();
 
     currentState.levels[0] = &sensor1;
+    currentState.levels[1] = &sensor2;
 }
 
 bool isWaterHigh(int sensorPin) {
@@ -162,33 +180,33 @@ void loop() {
 
     mqttClient.loop();
 
-    bool shouldPublish = false;
+    WaterLevelStats* pWaterLevelStats = calculateWaterLevel(&currentState);
 
-    for(WaterLevelSensor* s : currentState.levels) {
+    if (pWaterLevelStats->shouldPublishImmediately || shouldPublishLevels(currentState.lastPublishTime)) {
+        currentState.lastPublishTime = millis();
+        Serial.printf("publishing water level: %d\n", pWaterLevelStats->waterLevel);
+        mqttClient.publish(MQTT_TREE_LEVEL_TOPIC, String(pWaterLevelStats->waterLevel).c_str());
+    }
+}
+
+WaterLevelStats* calculateWaterLevel(ApplicationState* state) {
+    int waterLevel = 0;
+    bool shouldPublishImmediately = false;
+
+    for(WaterLevelSensor* s : state->levels) {
         bool currentValue = isWaterHigh(s->pin);
         if (currentValue != s->currentState) {
-            Serial.printf("Sensor 1 state changed from %d to %d\n", s->currentState, currentValue);
+            Serial.printf("%s state changed from %d to %d\n", s->label, s->currentState, currentValue);
             s->currentState = currentValue;
-            shouldPublish = true;
+            shouldPublishImmediately = true;
         }
-    }
-
-    int waterLevel = 0;
-
-    for(WaterLevelSensor* s : currentState.levels) {
         if (s->currentState) {
             waterLevel += s->depth;
         }
     }
 
-    if (shouldPublish) {
-        Serial.printf("Water level changed: %d\n", waterLevel);
-        mqttClient.publish(MQTT_TREE_LEVEL_TOPIC, String(waterLevel).c_str());
-    }
+    waterLevelStats.waterLevel = waterLevel;
+    waterLevelStats.shouldPublishImmediately = shouldPublishImmediately;
 
-    if (shouldPublishLevels(currentState.lastPublishTime)) {
-        currentState.lastPublishTime = millis();
-        Serial.printf("%6dl - publishing water level: %d\n", currentState.lastPublishTime, waterLevel);
-        mqttClient.publish(MQTT_TREE_LEVEL_TOPIC, String(waterLevel).c_str());
-    }
+    return &waterLevelStats;
 }
