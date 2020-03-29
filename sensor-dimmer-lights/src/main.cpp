@@ -32,8 +32,9 @@ const static unsigned int LIGHTS_RED_PIN = D3;
 const static unsigned int LIGHTS_GREEN_PIN = D4;
 const static unsigned int MOTION_SENSOR_PIN = D5;
 
-const static char* MQTT_MOTION_TRIGGER_TOPIC = "home/upstairs/stair-lights/trigger";
-const static char* MQTT_LIGHT_STATE_TOPIC = "home/upstairs/stair-lights";
+const static char* MQTT_MOTION_AVAILABILITY_TOPIC = "home/upstairs/stair-lights";
+const static char* MQTT_MOTION_STATE_TOPIC = "home/upstairs/stair-lights/motion";
+const static char* MQTT_LIGHT_STATE_TOPIC = "home/upstairs/stair-lights/lights";
 
 AsyncDelay* triggerDelay;
 
@@ -121,9 +122,9 @@ void colorToString(CRGB* color, char* buffer) {
     sprintf(buffer, "R: %X G: %X B: %X", color->red, color->green, color->blue);
 }
 
-void triggerLights(bool on) {
-    isLightOn = on;
-    CRGB color = on ? CRGB::GhostWhite : CRGB::Black;
+void triggerLights(bool isOn) {
+    isLightOn = isOn;
+    CRGB color = isOn ? CRGB::GhostWhite : CRGB::Black;
 
     Serial.print("Setting lights to ");
 
@@ -158,10 +159,10 @@ bool mqttReconnect() {
     mqttClient.setCallback(mqttTopicCallback);
 
     // Create a random client ID
-    String clientId = "ESP8266Client-";
-    clientId += String(random(0xffff), HEX);
+    char* clientId = "upstairs-motion-lights";
+
     // Attempt to connect
-    if (!mqttClient.connect(clientId.c_str())) {
+    if (!mqttClient.connect(clientId, MQTT_MOTION_AVAILABILITY_TOPIC, 0, true, "offline")) {
         Serial.print("failed, rc=");
         Serial.print(mqttClient.state());
         Serial.println(" try again in 5 seconds");
@@ -171,8 +172,10 @@ bool mqttReconnect() {
     }
 
     Serial.println("connected");
-    // Once connected, publish an announcement...
-    mqttClient.publish(MQTT_MOTION_TRIGGER_TOPIC, "hello world");
+    // Once connected, publish current state...
+    mqttClient.publish(MQTT_MOTION_AVAILABILITY_TOPIC, "online");
+    mqttClient.publish(MQTT_MOTION_STATE_TOPIC, "0");
+    mqttClient.publish(MQTT_LIGHT_STATE_TOPIC, "0");
     // ... and resubscribe
     mqttClient.subscribe(MQTT_LIGHT_STATE_TOPIC);
 
@@ -222,10 +225,11 @@ void loop() {
 
     if (motionValue == 0) {
         Log.notice("Motion detection off\n");
+        mqttClient.publish(MQTT_MOTION_STATE_TOPIC, "0");
     }
 
     if (motionValue == 1) {
         Log.notice("Motion detected\n");
-        mqttClient.publish(MQTT_MOTION_TRIGGER_TOPIC, "1");
+        mqttClient.publish(MQTT_MOTION_STATE_TOPIC, "1");
     }
 }
