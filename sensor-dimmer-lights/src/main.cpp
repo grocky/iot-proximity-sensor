@@ -117,9 +117,20 @@ void colorBars() {
     }
 }
 
+void colorToString(CRGB* color, char* buffer) {
+    sprintf(buffer, "R: %X G: %X B: %X", color->red, color->green, color->blue);
+}
+
 void triggerLights(bool on) {
     isLightOn = on;
     CRGB color = on ? CRGB::GhostWhite : CRGB::Black;
+
+    Serial.print("Setting lights to ");
+
+    char colorString[100];
+    colorToString(&color, colorString);
+    Serial.println(colorString);
+
     showAnalogRGB(color);
 }
 
@@ -134,7 +145,7 @@ void mqttTopicCallback(char* topic, byte* payload, unsigned int length) {
 
     std::string topicString(topic);
 
-    if (topicString == "home/upstairs/stair-lights") {
+    if (topicString == MQTT_LIGHT_STATE_TOPIC) {
         bool value = (char)payload[0] == '1';
         return triggerLights(value);
     }
