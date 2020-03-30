@@ -23,9 +23,9 @@ const static unsigned int HALF_SECOND = 500;
 
 const static int BAUD_RATE = 250000;
 
-const static unsigned int LIGHTS_BLUE_PIN = D2;
-const static unsigned int LIGHTS_RED_PIN = D3;
-const static unsigned int LIGHTS_GREEN_PIN = D4;
+const static unsigned int LIGHTS_BLUE_PIN = D1;
+const static unsigned int LIGHTS_RED_PIN = D2;
+const static unsigned int LIGHTS_GREEN_PIN = D3;
 const static unsigned int MOTION_SENSOR_PIN = D5;
 
 const static char* MQTT_MOTION_AVAILABILITY_TOPIC = "home/upstairs/stair-lights";
