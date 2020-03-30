@@ -260,12 +260,12 @@ void loop() {
     ulong time = millis();
 
     if (motionValue == 0) {
-        Log.notice("%lu - Motion detection off\n", time);
+        Log.notice("%l - Motion detection off\n", time);
         publishMessage(MQTT_MOTION_STATE_TOPIC, "0");
     }
 
     if (motionValue == 1) {
-        Log.notice("%lu - Motion detected\n", time);
+        Log.notice("%l - Motion detected\n", time);
         publishMessage(MQTT_MOTION_STATE_TOPIC, "1");
     }
 }
