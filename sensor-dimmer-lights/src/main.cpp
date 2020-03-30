@@ -47,6 +47,7 @@ bool isLightOn = false;
 void setupWifi() {
     Serial.println("Opening configuration portal");
     digitalWrite(LED_BUILTIN, LOW);
+    digitalWrite(D4, LOW);
 
     WiFiManager wifiManager;
 
@@ -59,6 +60,7 @@ void setupWifi() {
 
     Serial.println("WiFi connection completed");
     digitalWrite(LED_BUILTIN, HIGH);
+    digitalWrite(D4, HIGH);
 
     int connResult = WiFi.waitForConnectResult();
     Serial.println(connResult);
