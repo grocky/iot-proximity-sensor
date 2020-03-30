@@ -32,8 +32,6 @@ const static char* MQTT_MOTION_AVAILABILITY_TOPIC = "home/upstairs/stair-lights"
 const static char* MQTT_MOTION_STATE_TOPIC        = "home/upstairs/stair-lights/motion";
 const static char* MQTT_LIGHT_STATE_TOPIC         = "home/upstairs/stair-lights/lights";
 
-AsyncDelay* triggerDelay;
-
 ProjectConfiguration* config;
 Ultrasonic* ultrasonic;
 
@@ -83,7 +81,6 @@ void setupConfiguration() {
 
     CallbackFn updateLightDuration = [](const ConfigurationPropertyChange value) {
         if (value.key == "lights.durationSeconds") {
-            triggerDelay = new AsyncDelay(config->lights.durationSeconds * ONE_SECOND, AsyncDelay::MILLIS);
         }
     };
 
@@ -151,11 +148,18 @@ void mqttTopicCallback(char* topic, byte* payload, unsigned int length) {
 struct MqttMessage {
     const char* topic;
     const char* payload;
+    bool retained;
 };
 
 void publishMessage(MqttMessage *message) {
-    Serial.printf("Publish to\ttopic: %-40s value: %s\n", message->topic, message->payload);
-    mqttClient.publish(message->topic, message->payload);
+    ulong time = millis();
+    Serial.printf("%lu - Publish to\ttopic: %-40s value: %s\tretained: %i\n",
+        time,
+        message->topic,
+        message->payload,
+        message->retained
+    );
+    mqttClient.publish(message->topic, message->payload, message->retained);
 }
 
 void publishMessage(const char* topic, const char* payload) {
@@ -185,7 +189,7 @@ bool mqttReconnect() {
     Serial.println("connected");
 
     MqttMessage publishes[] = {
-        { MQTT_MOTION_AVAILABILITY_TOPIC, "online" },
+        { MQTT_MOTION_AVAILABILITY_TOPIC, "online", true },
         { MQTT_MOTION_STATE_TOPIC, "0" },
         { MQTT_LIGHT_STATE_TOPIC,  isLightOn ? "1" : "0" },
     };
@@ -229,8 +233,6 @@ void setup() {
     setupWifi();
     setupConfiguration();
 
-    triggerDelay = new AsyncDelay(config->lights.durationSeconds * ONE_SECOND, AsyncDelay::MILLIS);
-
     motion = new PirSensor(MOTION_SENSOR_PIN, 2, false, false);
     motion->begin();
 
@@ -253,14 +255,15 @@ void loop() {
     mqttClient.loop();
 
     int motionValue = motion->sampleValue();
+    ulong time = millis();
 
     if (motionValue == 0) {
-        Log.notice("Motion detection off\n");
+        Log.notice("%lu - Motion detection off\n", time);
         publishMessage(MQTT_MOTION_STATE_TOPIC, "0");
     }
 
     if (motionValue == 1) {
-        Log.notice("Motion detected\n");
+        Log.notice("%lu - Motion detected\n", time);
         publishMessage(MQTT_MOTION_STATE_TOPIC, "1");
     }
 }
