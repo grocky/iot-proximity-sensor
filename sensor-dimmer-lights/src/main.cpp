@@ -18,10 +18,6 @@
 #include <PirSensor.h>
 #include <PubSubClient.h>
 
-#ifndef LED_BUILTIN
-#define LED_BUILTIN  13
-#endif
-
 const static unsigned int ONE_SECOND = 1000;
 const static unsigned int HALF_SECOND = 500;
 
@@ -33,8 +29,8 @@ const static unsigned int LIGHTS_GREEN_PIN = D4;
 const static unsigned int MOTION_SENSOR_PIN = D5;
 
 const static char* MQTT_MOTION_AVAILABILITY_TOPIC = "home/upstairs/stair-lights";
-const static char* MQTT_MOTION_STATE_TOPIC = "home/upstairs/stair-lights/motion";
-const static char* MQTT_LIGHT_STATE_TOPIC = "home/upstairs/stair-lights/lights";
+const static char* MQTT_MOTION_STATE_TOPIC        = "home/upstairs/stair-lights/motion";
+const static char* MQTT_LIGHT_STATE_TOPIC         = "home/upstairs/stair-lights/lights";
 
 AsyncDelay* triggerDelay;
 
@@ -139,7 +135,7 @@ void mqttTopicCallback(char* topic, byte* payload, unsigned int length) {
     Serial.print("Message arrived [");
     Serial.print(topic);
     Serial.print("] ");
-    for (int i = 0; i < length; i++) {
+    for (uint i = 0; i < length; i++) {
         Serial.print((char)payload[i]);
     }
     Serial.println();
@@ -152,6 +148,21 @@ void mqttTopicCallback(char* topic, byte* payload, unsigned int length) {
     }
 }
 
+struct MqttMessage {
+    const char* topic;
+    const char* payload;
+};
+
+void publishMessage(MqttMessage *message) {
+    Serial.printf("Publish to\ttopic: %-40s value: %s\n", message->topic, message->payload);
+    mqttClient.publish(message->topic, message->payload);
+}
+
+void publishMessage(const char* topic, const char* payload) {
+    MqttMessage m = { topic, payload };
+    publishMessage(&m);
+}
+
 bool mqttReconnect() {
     Serial.print("Attempting MQTT connection...");
 
@@ -159,10 +170,10 @@ bool mqttReconnect() {
     mqttClient.setCallback(mqttTopicCallback);
 
     // Create a random client ID
-    char* clientId = "upstairs-motion-lights";
+    const char* clientId = "upstairs-motion-lights";
 
     // Attempt to connect
-    if (!mqttClient.connect(clientId, MQTT_MOTION_AVAILABILITY_TOPIC, 0, true, "offline")) {
+    if (!mqttClient.connect(clientId, MQTT_MOTION_AVAILABILITY_TOPIC, MQTTQOS0, true, "offline")) {
         Serial.print("failed, rc=");
         Serial.print(mqttClient.state());
         Serial.println(" try again in 5 seconds");
@@ -172,12 +183,32 @@ bool mqttReconnect() {
     }
 
     Serial.println("connected");
+
+    MqttMessage publishes[] = {
+        { MQTT_MOTION_AVAILABILITY_TOPIC, "online" },
+        { MQTT_MOTION_STATE_TOPIC, "0" },
+        { MQTT_LIGHT_STATE_TOPIC,  isLightOn ? "1" : "0" },
+    };
+
     // Once connected, publish current state...
-    mqttClient.publish(MQTT_MOTION_AVAILABILITY_TOPIC, "online");
-    mqttClient.publish(MQTT_MOTION_STATE_TOPIC, "0");
-    mqttClient.publish(MQTT_LIGHT_STATE_TOPIC, "0");
+    for (MqttMessage p : publishes) {
+        publishMessage(&p);
+    }
+
+    struct Subscription {
+        const char* topic;
+        uint8_t qos;
+    };
+
+    Subscription subscriptions[] = {
+        { MQTT_LIGHT_STATE_TOPIC, MQTTQOS0 }
+    };
+
     // ... and resubscribe
-    mqttClient.subscribe(MQTT_LIGHT_STATE_TOPIC);
+    for (Subscription s : subscriptions) {
+        Serial.printf("Subscribe to\ttopic: %-40s qos: %i\n", s.topic, s.qos);
+        mqttClient.subscribe(s.topic, s.qos);
+    }
 
     return true;
 }
@@ -225,11 +256,11 @@ void loop() {
 
     if (motionValue == 0) {
         Log.notice("Motion detection off\n");
-        mqttClient.publish(MQTT_MOTION_STATE_TOPIC, "0");
+        publishMessage(MQTT_MOTION_STATE_TOPIC, "0");
     }
 
     if (motionValue == 1) {
         Log.notice("Motion detected\n");
-        mqttClient.publish(MQTT_MOTION_STATE_TOPIC, "1");
+        publishMessage(MQTT_MOTION_STATE_TOPIC, "1");
     }
 }
