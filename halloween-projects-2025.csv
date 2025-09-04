@@ -1,0 +1,6 @@
+Project Name,Description,Priority (1-5),Difficulty (1-5),Time Estimate (Hours),Reference Links,Materials Sheet ID,Status,Notes,Estimated Cost
+Animated Skeleton Butler,Motion-activated skeleton that greets trick-or-treaters with voice and movement,4,3,12,"https://youtu.be/example1, https://example.com/tutorial1",SKEL-001,Planning,"Need to source servo motors and sound module",$45
+LED Matrix Pumpkin Display,Programmable 16x16 LED matrix inside carved pumpkin for animations,3,4,8,"https://youtu.be/example2",LED-001,Not Started,"Consider weatherproofing for outdoor use",$60
+Fog Machine Tombstone,Tombstone prop with built-in fog machine and colored lighting effects,5,2,6,"https://example.com/fog-tutorial",FOG-001,Not Started,"Easy build but high impact",$30
+Smart Doorbell with Jump Scare,Modify existing doorbell to trigger coordinated scares (sound + lights + motion),4,3,10,"https://youtu.be/example3, https://forum.example.com/doorbell",DOOR-001,Planning,"Integration with existing Ring doorbell",$25
+Projection Mapping Ghost,Use projector to create moving ghost effect on walls/sheets,2,5,20,"https://youtu.be/projection-mapping",PROJ-001,Research,"Complex setup but very cool effect",$150
